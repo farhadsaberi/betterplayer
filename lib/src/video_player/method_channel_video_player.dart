@@ -318,6 +318,14 @@ class MethodChannelVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
+  Future<void> stopAllCache(String? cacheKey) {
+    return _channel.invokeMethod<void>(
+      'stopAllCache',
+      <String, dynamic>{'cacheKey': cacheKey},
+    );
+  }
+
+  @override
   Stream<VideoEvent> videoEventsFor(int? textureId) {
     return _eventChannelFor(textureId)
         .receiveBroadcastStream()

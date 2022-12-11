@@ -81,6 +81,11 @@ abstract class VideoPlayerPlatform {
     throw UnimplementedError('stopPreCache() has not been implemented.');
   }
 
+  /// All-caches a video.
+  Future<void> stopAllCache(String? cacheKey) {
+    throw UnimplementedError('stopPreCache() has not been implemented.');
+  }
+
   /// Set data source of video.
   Future<void> setDataSource(int? textureId, DataSource dataSource) {
     throw UnimplementedError('setDataSource() has not been implemented.');

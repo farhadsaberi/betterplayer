@@ -190,7 +190,8 @@ internal class BetterPlayer(
         } else {
             dataSourceFactory = DefaultDataSource.Factory(context)
         }
-        val mediaSource = buildMediaSource(uri, dataSourceFactory, formatHint, cacheKey, context,useCache)
+        val mediaSource =
+            buildMediaSource(uri, dataSourceFactory, formatHint, cacheKey, context, useCache)
         if (overriddenDuration != 0L) {
             val clippingMediaSource = ClippingMediaSource(mediaSource, 0, overriddenDuration * 1000)
             exoPlayer?.setMediaSource(clippingMediaSource)
@@ -836,6 +837,13 @@ internal class BetterPlayer(
         //it will be ignored.
         fun stopPreCache(context: Context?, url: String?, result: MethodChannel.Result) {
             if (url != null && context != null) {
+                WorkManager.getInstance(context).cancelAllWorkByTag(TAG)
+            }
+            result.success(null)
+        }
+
+        fun stopAllCache(context: Context?, result: MethodChannel.Result) {
+            if (context != null) {
                 WorkManager.getInstance(context).cancelAllWorkByTag(TAG)
             }
             result.success(null)
