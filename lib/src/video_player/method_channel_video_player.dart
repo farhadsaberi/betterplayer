@@ -318,10 +318,10 @@ class MethodChannelVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<void> stopAllCache(String? cacheKey) {
+  Future<void> stopAllCache() {
     return _channel.invokeMethod<void>(
       'stopAllCache',
-      <String, dynamic>{'cacheKey': cacheKey},
+      <String, dynamic>{},
     );
   }
 

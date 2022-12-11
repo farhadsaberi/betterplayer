@@ -1264,10 +1264,8 @@ class BetterPlayerController {
         betterPlayerDataSource.cacheConfiguration?.key);
   }
 
-  Future<void> stopAllCache(
-      BetterPlayerDataSource betterPlayerDataSource) async {
-    return VideoPlayerController?.stopAllCache(
-        betterPlayerDataSource.cacheConfiguration?.key);
+  Future<void> stopAllCache() async {
+    return VideoPlayerController?.stopAllCache();
   }
 
   /// Sets the new [betterPlayerControlsConfiguration] instance in the

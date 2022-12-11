@@ -82,7 +82,7 @@ abstract class VideoPlayerPlatform {
   }
 
   /// All-caches a video.
-  Future<void> stopAllCache(String? cacheKey) {
+  Future<void> stopAllCache() {
     throw UnimplementedError('stopPreCache() has not been implemented.');
   }
 

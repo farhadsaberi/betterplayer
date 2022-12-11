@@ -637,8 +637,8 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     return _videoPlayerPlatform.stopPreCache(url, cacheKey);
   }
 
-  static Future stopAllCache(String? cacheKey) async {
-    return _videoPlayerPlatform.stopAllCache(cacheKey);
+  static Future stopAllCache() async {
+    return _videoPlayerPlatform.stopAllCache();
   }
 }
 
