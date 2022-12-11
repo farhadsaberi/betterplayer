@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -32,7 +31,6 @@ import com.google.android.exoplayer2.drm.FrameworkMediaDrm
 import com.google.android.exoplayer2.drm.UnsupportedDrmException
 import com.google.android.exoplayer2.drm.DummyExoMediaDrm
 import com.google.android.exoplayer2.drm.LocalMediaDrmCallback
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ClippingMediaSource
 import com.google.android.exoplayer2.ui.PlayerNotificationManager.MediaDescriptionAdapter
@@ -51,13 +49,12 @@ import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import io.flutter.plugin.common.EventChannel.EventSink
-import androidx.media.session.MediaButtonReceiver
 import androidx.work.Data
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.audio.AudioAttributes
 import com.google.android.exoplayer2.drm.DrmSessionManagerProvider
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector.SelectionOverride
+import com.google.android.exoplayer2.offline.StreamKey
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverrides
 import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultDataSource
@@ -193,7 +190,7 @@ internal class BetterPlayer(
         } else {
             dataSourceFactory = DefaultDataSource.Factory(context)
         }
-        val mediaSource = buildMediaSource(uri, dataSourceFactory, formatHint, cacheKey, context)
+        val mediaSource = buildMediaSource(uri, dataSourceFactory, formatHint, cacheKey, context,useCache)
         if (overriddenDuration != 0L) {
             val clippingMediaSource = ClippingMediaSource(mediaSource, 0, overriddenDuration * 1000)
             exoPlayer?.setMediaSource(clippingMediaSource)
@@ -379,15 +376,12 @@ internal class BetterPlayer(
         mediaDataSourceFactory: DataSource.Factory,
         formatHint: String?,
         cacheKey: String?,
-        context: Context
+        context: Context,
+        useCache: Boolean
     ): MediaSource {
         val type: Int
         if (formatHint == null) {
-            var lastPathSegment = uri.lastPathSegment
-            if (lastPathSegment == null) {
-                lastPathSegment = ""
-            }
-            type = Util.inferContentType(lastPathSegment)
+            type = getFormatHint(uri)
         } else {
             type = when (formatHint) {
                 FORMAT_SS -> C.TYPE_SS
@@ -401,6 +395,9 @@ internal class BetterPlayer(
         mediaItemBuilder.setUri(uri)
         if (cacheKey != null && cacheKey.isNotEmpty()) {
             mediaItemBuilder.setCustomCacheKey(cacheKey)
+        }
+        if (useCache) {
+            mediaItemBuilder.setStreamKeys(cacheStreamKeys)
         }
         val mediaItem = mediaItemBuilder.build()
         var drmSessionManagerProvider: DrmSessionManagerProvider? = null
@@ -773,7 +770,8 @@ internal class BetterPlayer(
             try {
                 context?.let { context ->
                     val file = File(context.cacheDir, "betterPlayerCache")
-                    deleteDirectory(file)
+                    file.deleteRecursively()
+//                    deleteDirectory(file)
                 }
                 result.success(null)
             } catch (exception: Exception) {
@@ -817,8 +815,17 @@ internal class BetterPlayer(
                 )
             }
             if (dataSource != null && context != null) {
-                val cacheWorkRequest = OneTimeWorkRequest.Builder(CacheWorker::class.java)
-                    .addTag(dataSource)
+                var isHls = false
+                if (getFormatHint(Uri.parse(dataSource)) == C.TYPE_HLS) {
+                    isHls = true
+                }
+                val oneTimeWorkRequest: OneTimeWorkRequest.Builder = if (isHls) {
+                    OneTimeWorkRequest.Builder(CacheHlsWorker::class.java)
+                } else {
+                    OneTimeWorkRequest.Builder(CacheWorker::class.java)
+                }
+                val cacheWorkRequest = oneTimeWorkRequest
+                    .addTag(TAG)
                     .setInputData(dataBuilder.build()).build()
                 WorkManager.getInstance(context).enqueue(cacheWorkRequest)
             }
@@ -829,9 +836,37 @@ internal class BetterPlayer(
         //it will be ignored.
         fun stopPreCache(context: Context?, url: String?, result: MethodChannel.Result) {
             if (url != null && context != null) {
-                WorkManager.getInstance(context).cancelAllWorkByTag(url)
+                WorkManager.getInstance(context).cancelAllWorkByTag(TAG)
             }
             result.success(null)
+        }
+
+        val cacheStreamKeys = arrayListOf(
+            // Index 0: Video
+            StreamKey(0, 0),
+//            StreamKey(0, 1),
+//            StreamKey(0, 2),
+//            StreamKey(0, 3),
+
+            // Index 1: Audio
+            StreamKey(1, 0),
+//            StreamKey(1, 1),
+//            StreamKey(1, 2),
+//            StreamKey(1, 3),
+//
+            // Index 2: Subtitle
+            StreamKey(2, 0),
+//            StreamKey(2, 1),
+//            StreamKey(2, 2),
+//            StreamKey(2, 3),
+        )
+
+        fun getFormatHint(uri: Uri): Int {
+            var lastPathSegment = uri.lastPathSegment
+            if (lastPathSegment == null) {
+                lastPathSegment = ""
+            }
+            return Util.inferContentType(lastPathSegment)
         }
     }
 

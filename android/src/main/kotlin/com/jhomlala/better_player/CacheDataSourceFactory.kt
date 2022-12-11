@@ -2,11 +2,12 @@ package com.jhomlala.better_player
 
 import android.content.Context
 import com.google.android.exoplayer2.upstream.DataSource
-import com.google.android.exoplayer2.upstream.cache.CacheDataSource
-import com.google.android.exoplayer2.upstream.FileDataSource
-import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
 import com.google.android.exoplayer2.upstream.DefaultDataSource
+import com.google.android.exoplayer2.upstream.FileDataSource
+import com.google.android.exoplayer2.upstream.cache.CacheDataSink
+import com.google.android.exoplayer2.upstream.cache.CacheDataSource
+import com.google.android.exoplayer2.upstream.cache.SimpleCache
 
 internal class CacheDataSourceFactory(
     private val context: Context,
@@ -15,10 +16,10 @@ internal class CacheDataSourceFactory(
     upstreamDataSource: DataSource.Factory?
 ) : DataSource.Factory {
     private var defaultDatasourceFactory: DefaultDataSource.Factory? = null
-    override fun createDataSource(): CacheDataSource {
-        val betterPlayerCache = BetterPlayerCache.createCache(context, maxCacheSize)
-            ?: throw IllegalStateException("Cache can't be null.")
+    private val betterPlayerCache: SimpleCache =
+        BetterPlayerCache.createCache(context, maxCacheSize)!!
 
+    override fun createDataSource(): CacheDataSource {
         return CacheDataSource(
             betterPlayerCache,
             defaultDatasourceFactory?.createDataSource(),
@@ -27,6 +28,16 @@ internal class CacheDataSourceFactory(
             CacheDataSource.FLAG_BLOCK_ON_CACHE or CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR,
             null
         )
+    }
+
+    fun buildReadOnlyCacheDataSource(): CacheDataSource.Factory {
+        return CacheDataSource.Factory()
+            .setCache(betterPlayerCache)
+            .setUpstreamDataSourceFactory(defaultDatasourceFactory)
+            .setCacheWriteDataSinkFactory(
+                CacheDataSink.Factory().setCache(betterPlayerCache).setFragmentSize(maxFileSize)
+            )
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
     init {
