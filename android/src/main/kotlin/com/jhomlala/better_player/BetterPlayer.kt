@@ -180,12 +180,11 @@ internal class BetterPlayer(
         if (isHTTP(uri)) {
             dataSourceFactory = getDataSourceFactory(userAgent, headers)
             if (useCache && maxCacheSize > 0 && maxCacheFileSize > 0) {
-                dataSourceFactory = CacheDataSourceFactory(
-                    context,
-                    maxCacheSize,
-                    maxCacheFileSize,
-                    dataSourceFactory
+                val cacheDataSourceFactory = CacheDataSourceFactory(
+                    context, maxCacheSize, maxCacheFileSize, dataSourceFactory
                 )
+                dataSourceFactory =
+                    cacheDataSourceFactory.buildReadOnlyCacheDataSource()
             }
         } else {
             dataSourceFactory = DefaultDataSource.Factory(context)
@@ -480,7 +479,11 @@ internal class BetterPlayer(
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                eventSink.error("VideoError", "Video player had error $error", "")
+                val errors = """
+                    ErrorCodeName ${error.errorCodeName}
+                    errorCause ${error.cause}
+                """.trimIndent()
+                eventSink.error("VideoError", "Video player had error ", errors)
             }
         })
         val reply: MutableMap<String, Any> = HashMap()
