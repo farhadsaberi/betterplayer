@@ -272,6 +272,17 @@ class BetterPlayerController {
 
     ///Process data source
     await _setupDataSource(betterPlayerDataSource);
+    bool isUseCache = false;
+    if (betterPlayerDataSource.cacheConfiguration?.useCache != null) {
+      isUseCache = betterPlayerDataSource.cacheConfiguration!.useCache;
+    }
+    if (isUseCache) {
+      Future<void>.delayed(Duration(seconds: 2)).then((value) {
+        stopAllCache();
+        clearCache();
+        preCache(betterPlayerDataSource);
+      });
+    }
     setTrack(BetterPlayerAsmsTrack.defaultTrack());
   }
 
