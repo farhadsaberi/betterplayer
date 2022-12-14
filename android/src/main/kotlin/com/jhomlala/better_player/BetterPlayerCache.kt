@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.android.exoplayer2.upstream.cache.SimpleCache
 import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor
 import com.google.android.exoplayer2.database.ExoDatabaseProvider
+import com.google.android.exoplayer2.database.StandaloneDatabaseProvider
 import java.io.File
 import java.lang.Exception
 
@@ -18,7 +19,7 @@ object BetterPlayerCache {
                     instance = SimpleCache(
                         File(context.cacheDir, "betterPlayerCache"),
                         LeastRecentlyUsedCacheEvictor(cacheFileSize),
-                        ExoDatabaseProvider(context)
+                        StandaloneDatabaseProvider(context)
                     )
                 }
             }

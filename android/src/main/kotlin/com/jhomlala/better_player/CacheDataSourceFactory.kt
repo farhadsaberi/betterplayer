@@ -16,7 +16,7 @@ internal class CacheDataSourceFactory(
     upstreamDataSource: DataSource.Factory?
 ) : DataSource.Factory {
     private var defaultDatasourceFactory: DefaultDataSource.Factory? = null
-    private val betterPlayerCache: SimpleCache =
+    private val betterPlayerCache : SimpleCache =
         BetterPlayerCache.createCache(context, maxCacheSize)!!
 
     override fun createDataSource(): CacheDataSource {
