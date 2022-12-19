@@ -41,6 +41,7 @@ import android.support.v4.media.MediaMetadataCompat
 import android.util.Log
 import android.view.Surface
 import androidx.lifecycle.Observer
+import androidx.work.BackoffPolicy
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource
 import com.google.android.exoplayer2.source.smoothstreaming.DefaultSsChunkSource
 import com.google.android.exoplayer2.source.dash.DashMediaSource
@@ -50,11 +51,13 @@ import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import io.flutter.plugin.common.EventChannel.EventSink
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.audio.AudioAttributes
 import com.google.android.exoplayer2.drm.DrmSessionManagerProvider
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
 import com.google.android.exoplayer2.offline.StreamKey
+import com.google.android.exoplayer2.source.DefaultMediaSourceFactory
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverrides
 import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultDataSource
@@ -63,6 +66,7 @@ import java.io.File
 import java.lang.Exception
 import java.lang.IllegalStateException
 import java.util.*
+import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
 
@@ -105,6 +109,14 @@ internal class BetterPlayer(
         exoPlayer = ExoPlayer.Builder(context)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(
+                    CacheDataSourceCustomFactory.getCacheDataSourceFactory(
+                        context,
+                        1024 * 1024 * 1024,
+                    )
+                )
+            )
             .build()
         workManager = WorkManager.getInstance(context)
         workerObserverMap = HashMap()
@@ -180,11 +192,13 @@ internal class BetterPlayer(
         if (isHTTP(uri)) {
             dataSourceFactory = getDataSourceFactory(userAgent, headers)
             if (useCache && maxCacheSize > 0 && maxCacheFileSize > 0) {
-                val cacheDataSourceFactory = CacheDataSourceFactory(
-                    context, maxCacheSize, maxCacheFileSize, dataSourceFactory
-                )
-                dataSourceFactory =
-                    cacheDataSourceFactory.buildReadOnlyCacheDataSource()
+                if (getFormatHint(Uri.parse(dataSource)) != C.TYPE_HLS) {
+                    val cacheDataSourceFactory = CacheDataSourceFactory(
+                        context, maxCacheSize, maxCacheFileSize, dataSourceFactory
+                    )
+                    dataSourceFactory =
+                        cacheDataSourceFactory.buildReadOnlyCacheDataSource()
+                }
             }
         } else {
             dataSourceFactory = DefaultDataSource.Factory(context)
@@ -417,9 +431,7 @@ internal class BetterPlayer(
             )
                 .setDrmSessionManagerProvider(drmSessionManagerProvider)
                 .createMediaSource(mediaItem)
-            C.TYPE_HLS -> HlsMediaSource.Factory(mediaDataSourceFactory)
-                .setDrmSessionManagerProvider(drmSessionManagerProvider)
-                .createMediaSource(mediaItem)
+            C.TYPE_HLS -> CacheDataSourceCustomFactory.getHlsMediaSource(mediaItem)
             C.TYPE_OTHER -> ProgressiveMediaSource.Factory(
                 mediaDataSourceFactory,
                 DefaultExtractorsFactory()
@@ -830,8 +842,13 @@ internal class BetterPlayer(
                 }
                 val cacheWorkRequest = oneTimeWorkRequest
                     .addTag(TAG)
+                    .setInitialDelay(5, TimeUnit.SECONDS)
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
                     .setInputData(dataBuilder.build()).build()
-                WorkManager.getInstance(context).enqueue(cacheWorkRequest)
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    TAG,
+                    ExistingWorkPolicy.REPLACE, cacheWorkRequest
+                )
             }
             result.success(null)
         }
