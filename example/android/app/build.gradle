@@ -43,6 +43,7 @@ android {
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
+        ndkVersion '23.0.7599858'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
